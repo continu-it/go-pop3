@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/base64"
+
 	"github.com/emersion/go-message"
 )
 
@@ -50,8 +52,8 @@ type MessageID struct {
 }
 
 var (
-	lineBreak = []byte("\r\n")
-
+	lineBreak   = []byte("\r\n")
+	respPrompt  = []byte("+")     // `+ ` asking for prompt (used by XOAuth2)
 	respOK      = []byte("+OK")   // `+OK` without additional info
 	respOKInfo  = []byte("+OK ")  // `+OK <info>`
 	respErr     = []byte("-ERR")  // `-ERR` without additional info
@@ -134,6 +136,8 @@ func (c *Conn) Cmd(cmd string, isMulti bool, args ...interface{}) (*bytes.Buffer
 		cmdLine = cmd
 	}
 
+	fmt.Println(cmdLine)
+
 	if err := c.Send(cmdLine); err != nil {
 		return nil, err
 	}
@@ -209,7 +213,11 @@ func (c *Conn) Auth(user, password string) error {
 // XOAuth2 sends an authentication request using an user name and OAuth access token.
 func (c *Conn) XOAuth2(user, access_token string) error {
 	ir := []byte("user=" + user + "\x01auth=Bearer " + access_token + "\x01\x01")
-	_, err := c.Cmd("AUTH", false, "XOAUTH2", ir)
+	buf, _ := c.Cmd("AUTH", false, "XOAUTH2")
+	if !bytes.HasPrefix(buf.Bytes(), respPrompt) {
+		return fmt.Errorf("Did not receive a prompt from server. Received %v", buf)
+	}
+	_, err := c.Cmd(base64.StdEncoding.EncodeToString(ir), false)
 	return err
 
 }
@@ -436,6 +444,8 @@ func parseResp(b []byte) ([]byte, error) {
 		return nil, errors.New("unknown error (no info specified in response)")
 	} else if bytes.HasPrefix(b, respErrInfo) {
 		return nil, errors.New(string(bytes.TrimPrefix(b, respErrInfo)))
+	} else if bytes.HasPrefix(b, respPrompt) {
+		return b, nil
 	} else {
 		return nil, fmt.Errorf("unknown response: %s. Neither -ERR, nor +OK", string(b))
 	}
