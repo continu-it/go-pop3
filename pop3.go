@@ -206,6 +206,14 @@ func (c *Conn) Auth(user, password string) error {
 	return c.Noop()
 }
 
+// XOAuth2 sends an authentication request using an user name and OAuth access token.
+func (c *Conn) XOAuth2(user, access_token string) error {
+	ir := []byte("user=" + user + "\x01auth=Bearer " + access_token + "\x01\x01")
+	_, err := c.Cmd("AUTH", false, "XOAUTH2", ir)
+	return err
+
+}
+
 // User sends the username to the server.
 func (c *Conn) User(s string) error {
 	_, err := c.Cmd("USER", false, s)
