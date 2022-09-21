@@ -136,8 +136,6 @@ func (c *Conn) Cmd(cmd string, isMulti bool, args ...interface{}) (*bytes.Buffer
 		cmdLine = cmd
 	}
 
-	fmt.Println(cmdLine)
-
 	if err := c.Send(cmdLine); err != nil {
 		return nil, err
 	}
